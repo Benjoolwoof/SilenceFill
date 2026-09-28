@@ -1,1 +1,1 @@
-Download `SilenceFill.exe` from this folder to run the Windows app.
+Download the latest Windows executable from the [GitHub Releases page](https://github.com/Benjoolwoof/SilenceFill/releases/latest). Release assets live there because the executable exceeds GitHub's 25 MB repository-upload limit.
