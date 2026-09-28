@@ -34,7 +34,7 @@ internal sealed class Settings
                 if (value != null)
                 {
                     value.SelectedApps = new HashSet<string>(value.SelectedApps ?? [], StringComparer.OrdinalIgnoreCase);
-                    value.QuietSeconds = Math.Clamp(value.QuietSeconds, 2, 15);
+                    value.QuietSeconds = Math.Clamp(value.QuietSeconds, 0, 15);
                     return value;
                 }
             }
@@ -56,7 +56,7 @@ internal sealed class MainForm : Form
     private readonly CheckedListBox apps = new() { CheckOnClick = true, Dock = DockStyle.Fill, IntegralHeight = false };
     private readonly Label status = new() { Dock = DockStyle.Fill, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft };
     private readonly CheckBox enabled = new() { Text = "Enabled", AutoSize = true };
-    private readonly NumericUpDown quietSeconds = new() { Minimum = 2, Maximum = 15, Width = 48 };
+    private readonly NumericUpDown quietSeconds = new() { Minimum = 0, Maximum = 15, Width = 48 };
     private readonly NotifyIcon tray = new() { Visible = true, Text = "SilenceFill" };
     private readonly System.Windows.Forms.Timer timer = new() { Interval = 400 };
     private readonly SpotifyControl spotify = new();
@@ -227,7 +227,7 @@ internal sealed class MainForm : Form
                 var remaining = TimeSpan.FromSeconds(settings.QuietSeconds) - (now - lastOtherSound);
                 if (remaining > TimeSpan.Zero)
                     status.Text = $"Quiet — Spotify resumes in {Math.Ceiling(remaining.TotalSeconds)} s.";
-                else if (now - lastSpotifyCommand > TimeSpan.FromSeconds(1.5))
+                else if (settings.QuietSeconds == 0 || now - lastSpotifyCommand > TimeSpan.FromSeconds(1.5))
                 {
                     lastSpotifyCommand = now;
                     if (await spotify.PlayAsync())
