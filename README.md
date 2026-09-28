@@ -6,11 +6,11 @@ SilenceFill plays your Spotify music in the quiet moments between audio from app
 
 ## Download and use
 
-Download [SilenceFill.exe](https://github.com/Benjoolwoof/SilenceFill/releases/download/v1.0.0/SilenceFill.exe) on Windows, then:
+Download [SilenceFill v1.0.1](https://github.com/Benjoolwoof/SilenceFill/releases/download/v1.0.1/SilenceFill-v1.0.1.exe) on Windows, then:
 
 1. Open the Spotify desktop app and start playing music.
 2. Open SilenceFill and check the apps whose sound should pause Spotify.
-3. Choose how many quiet seconds must pass before music resumes (the default is four).
+3. Choose how many quiet seconds must pass before music resumes (the default is four). Set 0 to resume on the first quiet audio check.
 
 Click **Refresh open apps** if an app you just launched is missing. Closing the settings window keeps SilenceFill running in the system tray. Double-click its tray icon to reopen settings; right-click it to exit. Your app selections are saved between launches.
 
