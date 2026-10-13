@@ -1,34 +1,46 @@
-# SilenceFill
+# SilenceFill 2.2.2
 
 ![SilenceFill logo](assets/SilenceFill-logo.png)
 
-SilenceFill plays your Spotify music in the quiet moments between audio from apps you choose. When a selected app makes sound, SilenceFill pauses Spotify. After that app stays quiet for a few seconds, SilenceFill resumes it.
+SilenceFill pauses Spotify when a selected Windows app produces audio, then resumes it after the selected apps stay quiet. Analytics shows **measured Spotify output**, not inferred genre or mood.
 
-## Download and use
+## Use
 
-Download [SilenceFill v1.0.1](https://github.com/Benjoolwoof/SilenceFill/releases/download/v1.0.1/SilenceFill-v1.0.1.exe) on Windows, then:
+1. Download and run [SilenceFill v2.2.2 for Windows x64](https://github.com/Benjoolwoof/SilenceFill/releases/download/v2.2.2/SilenceFill-v2.2.2.exe) on Windows 10 version 1809 or newer, or Windows 11. The executable includes the .NET runtime.
+2. Play music in Spotify and select the apps that should interrupt it.
+3. Set the quiet delay and choose Sensitive, Balanced, or Relaxed detection.
+4. Close the window to leave SilenceFill in the tray. The tray menu can open the app, pause automation, change appearance, and exit.
 
-1. Open the Spotify desktop app and start playing music.
-2. Open SilenceFill and check the apps whose sound should pause Spotify.
-3. Choose how many quiet seconds must pass before music resumes (the default is four). Set 0 to resume on the first quiet audio check.
+The first launch shows a short setup dialog. A second v2 process brings the existing window forward. If an older SilenceFill process is running, v2 displays a warning and does not issue playback commands until that copy exits.
 
-Click **Refresh open apps** if an app you just launched is missing. Closing the settings window keeps SilenceFill running in the system tray. Double-click its tray icon to reopen settings; right-click it to exit. Your app selections are saved between launches.
+## Analytics
 
-SilenceFill requires Windows 10 version 1809 or later and the .NET 9 Windows Desktop Runtime. It controls the Spotify desktop app. Selecting a browser applies to all tabs in that browser, and SilenceFill resumes Spotify only when it paused Spotify itself.
+The compass and history use normalized Windows audio peak measurements. Its default axes use everyday terms for volume and how much it changes. Axis labels and quadrants can be customized, but automatic placement cannot infer composition style, genre, or mood. Spotify's Windows media session has not reliably supplied genre data in testing. The Saint-Saëns recording is therefore shown as sound activity, not labeled “Soft & steady.”
 
-## Build from source
+Drag the current-song dot to save a per-song offset. The trail keeps moving relative to that correction. Choose a time period and dot update interval in Analytics. History can be exported as CSV or deleted. Chart labels and corrections are separate from listening history.
 
-With the .NET 9 SDK installed:
+## Data and privacy
+
+Files are stored in `%LOCALAPPDATA%\SilenceFill`. Existing settings, chart labels, history, and song corrections are read in their older formats and written in versioned formats as they change. Each write uses a temporary file and a backup. Diagnostics logs recent decisions in memory and can be exported; audio is never recorded.
+
+## Build and test
+
+The project targets .NET 9 and Windows 10 version 1809 or later. The published executable includes the runtime. .NET 9 remains supported through November 10, 2026; moving to .NET 10 LTS should be done after its SDK and Windows packaging are available in the build environment. Only .NET 9 SDK was available for this release.
+
+From `src`:
 
 ```powershell
-dotnet build src/SilenceFill.csproj -c Release
+dotnet publish SilenceFill.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
-For a single executable:
+Run the tests from `tests`:
 
 ```powershell
-dotnet publish src/SilenceFill.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
+dotnet run --project SilenceFill.Tests.csproj
 ```
 
-The app uses Windows audio sessions to measure sound from the checked processes and Windows media controls to pause or play Spotify. It stores its settings locally in `%LOCALAPPDATA%\SilenceFill\settings.json`.
+The `preview` project renders interface screenshots using isolated test data. Set `SILENCEFILL_DATA_DIR` to use another local data folder during development.
 
+## Limits
+
+Windows media controls do not reveal who pressed pause while Spotify is already paused, so SilenceFill cannot distinguish a second manual pause during its own pause. It avoids resuming when playback starts manually, when Spotify restarts or the session changes, or when audio monitoring fails. Spotify's Windows session may also be unavailable during startup or device transitions; SilenceFill waits rather than guessing. The executable is unsigned.

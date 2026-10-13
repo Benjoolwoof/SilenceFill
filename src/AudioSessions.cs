@@ -4,12 +4,15 @@ using System.Runtime.InteropServices;
 namespace SilenceFill;
 
 internal readonly record struct AudioSession(string ProcessName, bool Active, float Peak);
+internal readonly record struct AudioScanResult(IReadOnlyList<AudioSession> Sessions, bool Healthy, string? Error);
 
 internal static class AudioSessions
 {
-    public static IReadOnlyList<AudioSession> Snapshot()
+    public static AudioScanResult Scan()
     {
         var result = new List<AudioSession>();
+        bool healthy = true;
+        string? error = null;
         IMMDeviceEnumerator? enumerator = null;
         IMMDeviceCollection? devices = null;
         try
@@ -19,6 +22,7 @@ internal static class AudioSessions
             enumerator = (IMMDeviceEnumerator)Activator.CreateInstance(enumeratorType)!;
             enumerator.EnumAudioEndpoints(0, 1, out devices); // All active render devices.
             devices.GetCount(out uint count);
+            if (count == 0) { healthy = false; error = "No active Windows audio output device."; }
             for (uint i = 0; i < count; i++)
             {
                 IMMDevice? device = null;
@@ -53,7 +57,7 @@ internal static class AudioSessions
                             if (state == 1)
                             {
                                 try { ((IAudioMeterInformation)control).GetPeakValue(out peak); }
-                                catch (COMException) { }
+                                catch (COMException e) { healthy = false; error = e.Message; }
                             }
                             result.Add(new AudioSession(name, state == 1, peak));
                         }
@@ -61,13 +65,13 @@ internal static class AudioSessions
                         finally { Release(control); }
                     }
                 }
-                catch (COMException) { /* A device may disappear while scanning. */ }
+                catch (COMException e) { healthy = false; error = e.Message; }
                 finally { Release(sessions); Release(manager); Release(device); }
             }
         }
-        catch (COMException) { }
+        catch (Exception e) { healthy = false; error = e.Message; }
         finally { Release(devices); Release(enumerator); }
-        return result;
+        return new AudioScanResult(result, healthy, error);
     }
 
     private static void Release(object? value)
@@ -162,4 +166,3 @@ internal interface IAudioMeterInformation
     void GetChannelsPeakValues(uint count, IntPtr peaks);
     void QueryHardwareSupport(out uint mask);
 }
-

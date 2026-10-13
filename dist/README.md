@@ -1,1 +1,1 @@
-Download the latest Windows executable from the [GitHub Releases page](https://github.com/Benjoolwoof/SilenceFill/releases/latest). Release assets live there because the executable exceeds GitHub's 25 MB repository-upload limit.
+Download [SilenceFill v2.2.2 for Windows x64](https://github.com/Benjoolwoof/SilenceFill/releases/download/v2.2.2/SilenceFill-v2.2.2.exe), or visit the [latest GitHub release](https://github.com/Benjoolwoof/SilenceFill/releases/latest). The executable includes the .NET runtime. Executables are distributed as release assets.
