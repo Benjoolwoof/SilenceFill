@@ -6,6 +6,8 @@ internal static class Program
 {
     private static EventWaitHandle? showExisting;
 
+    internal static void InitializeUi() => ApplicationConfiguration.Initialize();
+
     [STAThread]
     private static void Main()
     {
@@ -16,7 +18,7 @@ internal static class Program
             catch (Exception) { }
             return;
         }
-        ApplicationConfiguration.Initialize();
+        InitializeUi();
         showExisting = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\SilenceFill.Show");
         using var form = new MainForm();
         using var cancellation = new CancellationTokenSource();

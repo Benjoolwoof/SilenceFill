@@ -108,7 +108,7 @@ internal sealed class MusicInsightsPanel : UserControl
     private readonly ThemedStepper dotInterval = new() { Minimum = 1, Maximum = 30, Width = 64 };
     private readonly Label dotIntervalLabel = new() { Text = "Move dot every", AutoSize = true, Padding = new Padding(0, 6, 0, 0) };
     private readonly Label dotIntervalUnit = new() { Text = "seconds", AutoSize = true, Padding = new Padding(0, 6, 0, 0) };
-    private readonly Button resetCorrection = new() { Text = "Reset song position", AutoSize = true };
+    private readonly Button resetCorrection = new() { Text = "Reset song position", AutoSize = true, Margin = new Padding(3, 0, 3, 0) };
     private readonly InsightCanvas chart;
     private readonly List<StylePoint> trail = [];
     private readonly Queue<(DateTime Time, double Peak)> recentPeaks = new();
@@ -128,9 +128,12 @@ internal sealed class MusicInsightsPanel : UserControl
     private static string HistoryPath => Storage.PathFor("music-insights.json");
     private static string LabelsPath => Storage.PathFor("chart-labels.json");
     private static string CorrectionsPath => Storage.PathFor("song-corrections.json");
+    private int P(int logical) => DpiScale.Pixels(this, logical);
+    private float Stroke(float logical) => logical * DeviceDpi / 96f;
 
     public MusicInsightsPanel()
     {
+        AutoScaleMode = AutoScaleMode.Inherit;
         Dock = DockStyle.Fill;
         BackColor = Color.White;
         chart = new InsightCanvas(this) { Dock = DockStyle.Fill };
@@ -220,7 +223,8 @@ internal sealed class MusicInsightsPanel : UserControl
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
         layout.Controls.Add(header, 0, 0);
         layout.Controls.Add(selector, 0, 1);
-        var trackRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = new Padding(0, 0, 0, 8) };
+        var trackRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = new Padding(0, 0, 0, 8) };
+        trackRow.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         trackRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         trackRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         resetCorrection.Click += (_, _) => ResetSongCorrection();
@@ -234,15 +238,18 @@ internal sealed class MusicInsightsPanel : UserControl
         layout.Controls.Add(chart, 0, 3);
         layout.Controls.Add(note, 0, 4);
         Controls.Add(layout);
-        Resize += (_, _) =>
+        void UpdateLayout()
         {
-            var compact = Width < 650 || Height < 520;
-            layout.Padding = compact ? new Padding(16, 12, 16, 12) : new Padding(24, 20, 24, 20);
-            layout.RowStyles[0].Height = compact ? 38 : 48;
-            layout.RowStyles[1].Height = compact ? 124 : 88;
-            layout.RowStyles[2].Height = compact ? 40 : 50;
-            layout.RowStyles[4].Height = compact ? 52 : 44;
-        };
+            var compact = Width < P(650) || Height < P(520);
+            layout.Padding = compact ? new Padding(P(16), P(12), P(16), P(12)) : new Padding(P(24), P(20), P(24), P(20));
+            layout.RowStyles[0].Height = Math.Max(P(compact ? 38 : 48), header.Font.Height + header.Margin.Vertical);
+            layout.RowStyles[1].Height = P(compact ? 124 : 88);
+            layout.RowStyles[2].Height = P(compact ? 40 : 50);
+            layout.RowStyles[4].Height = P(compact ? 52 : 44);
+            chart.Invalidate();
+        }
+        Resize += (_, _) => UpdateLayout();
+        DpiChangedAfterParent += (_, _) => UpdateLayout();
         UpdateDescription();
     }
 
@@ -532,13 +539,14 @@ internal sealed class MusicInsightsPanel : UserControl
         using var dialog = new Form
         {
             Text = "Customize chart",
-            Width = 450,
-            Height = 610,
-            MinimumSize = new Size(410, 570),
+            ClientSize = new Size(450, 610),
+            MinimumSize = new Size(410, 610),
             StartPosition = FormStartPosition.CenterParent,
             FormBorderStyle = FormBorderStyle.Sizable,
             ShowInTaskbar = false
         };
+        dialog.SuspendLayout();
+        dialog.AutoScaleMode = AutoScaleMode.Dpi;
         var fields = new (string Caption, string Value)[]
         {
             ("Top axis", labels.HighEnergy), ("Bottom axis", labels.LowEnergy),
@@ -585,6 +593,8 @@ internal sealed class MusicInsightsPanel : UserControl
         dialog.Controls.Add(table);
         dialog.BackColor = palette.Background;
         dialog.ForeColor = palette.Text;
+        dialog.AutoScaleDimensions = new SizeF(96, 96);
+        dialog.ResumeLayout(true);
         AppTheme.Apply(dialog, palette);
         dialog.Shown += (_, _) => AppTheme.ApplyTitleBar(dialog, palette);
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
@@ -653,18 +663,18 @@ internal sealed class MusicInsightsPanel : UserControl
         FillQuadrant(g, new Rectangle(plot.Left, plot.Top + halfHeight, halfWidth, plot.Height - halfHeight), palette.Quadrants[2]);
         FillQuadrant(g, new Rectangle(plot.Left + halfWidth, plot.Top + halfHeight, plot.Width - halfWidth, plot.Height - halfHeight), palette.Quadrants[3]);
         DrawGrid(g, plot);
-        using (var center = new Pen(palette.Muted, 1.5f))
+        using (var center = new Pen(palette.Muted, Stroke(1.5f)))
         {
             g.DrawLine(center, plot.Left + halfWidth, plot.Top, plot.Left + halfWidth, plot.Bottom);
             g.DrawLine(center, plot.Left, plot.Top + halfHeight, plot.Right, plot.Top + halfHeight);
         }
         using var axisFont = new Font(UiFontFamily, 9);
         using var axisBrush = new SolidBrush(palette.Muted);
-        g.DrawString(labels.HighEnergy, axisFont, axisBrush, bounds.Left + 6, plot.Top);
-        g.DrawString(labels.LowEnergy, axisFont, axisBrush, bounds.Left + 6, plot.Bottom - 18);
-        g.DrawString(labels.LowVariation, axisFont, axisBrush, plot.Left, plot.Bottom + 9);
+        g.DrawString(labels.HighEnergy, axisFont, axisBrush, bounds.Left + P(6), plot.Top);
+        g.DrawString(labels.LowEnergy, axisFont, axisBrush, bounds.Left + P(6), plot.Bottom - P(18));
+        g.DrawString(labels.LowVariation, axisFont, axisBrush, plot.Left, plot.Bottom + P(9));
         var rightSize = g.MeasureString(labels.HighVariation, axisFont);
-        g.DrawString(labels.HighVariation, axisFont, axisBrush, plot.Right - rightSize.Width, plot.Bottom + 9);
+        g.DrawString(labels.HighVariation, axisFont, axisBrush, plot.Right - rightSize.Width, plot.Bottom + P(9));
         DrawQuadrantLabel(g, labels.UpperLeft, new Rectangle(plot.Left, plot.Top, halfWidth, halfHeight));
         DrawQuadrantLabel(g, labels.UpperRight, new Rectangle(plot.Left + halfWidth, plot.Top, plot.Width - halfWidth, halfHeight));
         DrawQuadrantLabel(g, labels.LowerLeft, new Rectangle(plot.Left, plot.Top + halfHeight, halfWidth, plot.Height - halfHeight),
@@ -686,21 +696,21 @@ internal sealed class MusicInsightsPanel : UserControl
         for (var i = 1; i < points.Length; i++)
         {
             var opacity = 50 + (int)(170.0 * i / points.Length);
-            using var segment = new Pen(Color.FromArgb(opacity, palette.Trail), 2.5f);
+            using var segment = new Pen(Color.FromArgb(opacity, palette.Trail), Stroke(2.5f));
             g.DrawLine(segment, points[i - 1], points[i]);
         }
         if (points.Length > 0)
         {
             using var start = new SolidBrush(Color.FromArgb(160, palette.Trail));
-            g.FillEllipse(start, points[0].X - 4, points[0].Y - 4, 8, 8);
+            g.FillEllipse(start, points[0].X - P(4), points[0].Y - P(4), P(8), P(8));
         }
         var latest = MapStylePoint(plot, visible[^1]);
         using var halo = new SolidBrush(Color.FromArgb(85, palette.Accent));
         using var dot = new SolidBrush(palette.Accent);
-        using var outline = new Pen(palette.AccentText, 2);
-        g.FillEllipse(halo, latest.X - 20, latest.Y - 20, 40, 40);
-        g.FillEllipse(dot, latest.X - 9, latest.Y - 9, 18, 18);
-        g.DrawEllipse(outline, latest.X - 9, latest.Y - 9, 18, 18);
+        using var outline = new Pen(palette.AccentText, Stroke(2));
+        g.FillEllipse(halo, latest.X - P(20), latest.Y - P(20), P(40), P(40));
+        g.FillEllipse(dot, latest.X - P(9), latest.Y - P(9), P(18), P(18));
+        g.DrawEllipse(outline, latest.X - P(9), latest.Y - P(9), P(18), P(18));
     }
 
     private void DrawHistory(Graphics g, Rectangle bounds)
@@ -715,28 +725,28 @@ internal sealed class MusicInsightsPanel : UserControl
         DrawGrid(g, plot);
         using var axisFont = new Font(UiFontFamily, 9);
         using var axisBrush = new SolidBrush(palette.Muted);
-        g.DrawString(labels.HistoryHigh, axisFont, axisBrush, bounds.Left + 7, plot.Top);
-        g.DrawString(labels.HistoryLow, axisFont, axisBrush, bounds.Left + 7, plot.Bottom - 18);
+        g.DrawString(labels.HistoryHigh, axisFont, axisBrush, bounds.Left + P(7), plot.Top);
+        g.DrawString(labels.HistoryLow, axisFont, axisBrush, bounds.Left + P(7), plot.Bottom - P(18));
         var start = HistoryStartUtc(tracks);
         var end = DateTime.UtcNow;
-        g.DrawString(start.ToLocalTime().ToString("g"), axisFont, axisBrush, plot.Left, plot.Bottom + 10);
+        g.DrawString(start.ToLocalTime().ToString("g"), axisFont, axisBrush, plot.Left, plot.Bottom + P(10));
         var recent = "Now";
         var recentSize = g.MeasureString(recent, axisFont);
-        g.DrawString(recent, axisFont, axisBrush, plot.Right - recentSize.Width, plot.Bottom + 10);
+        g.DrawString(recent, axisFont, axisBrush, plot.Right - recentSize.Width, plot.Bottom + P(10));
         var span = Math.Max(1, (end - start).TotalSeconds);
         var display = tracks.Count <= 300 ? tracks : tracks.Where((_, i) => i % (int)Math.Ceiling(tracks.Count / 300.0) == 0).Append(tracks[^1]).ToList();
         var points = display.Select(track => new PointF(
             plot.Left + (float)(Math.Clamp((track.StartedUtc - start).TotalSeconds / span, 0, 1) * plot.Width),
             plot.Bottom - (float)(Math.Clamp(track.Energy, 0, 100) / 100 * plot.Height))).ToArray();
-        using var line = new Pen(palette.Accent, 3);
+        using var line = new Pen(palette.Accent, Stroke(3));
         using var dot = new SolidBrush(palette.Accent);
         if (points.Length > 1) g.DrawLines(line, points);
-        foreach (var point in points) g.FillEllipse(dot, point.X - 5, point.Y - 5, 10, 10);
+        foreach (var point in points) g.FillEllipse(dot, point.X - P(5), point.Y - P(5), P(10), P(10));
         var last = tracks[^1];
         var label = $"{EnergyName(last.Energy)}  ·  {last.Title}";
         using var labelFont = new Font(UiFontFamily, 9, FontStyle.Bold);
         using var labelFormat = new StringFormat { Trimming = StringTrimming.EllipsisCharacter };
-        g.DrawString(label, labelFont, axisBrush, new RectangleF(plot.Left, bounds.Bottom - 22, plot.Width, 20), labelFormat);
+        g.DrawString(label, labelFont, axisBrush, new RectangleF(plot.Left, bounds.Bottom - P(22), plot.Width, P(20)), labelFormat);
     }
 
     private List<TrackSummary> FilteredTracks()
@@ -761,8 +771,8 @@ internal sealed class MusicInsightsPanel : UserControl
         return cutoff == DateTime.MinValue ? tracks.Min(track => track.StartedUtc) : cutoff;
     }
 
-    private static Rectangle HistoryPlot(Rectangle bounds) => new(bounds.Left + 94, bounds.Top + 16,
-        Math.Max(20, bounds.Width - 120), Math.Max(20, bounds.Height - 58));
+    private Rectangle HistoryPlot(Rectangle bounds) => new(bounds.Left + P(94), bounds.Top + P(16),
+        Math.Max(P(20), bounds.Width - P(120)), Math.Max(P(20), bounds.Height - P(58)));
 
     private string? TooltipAt(Point location, Rectangle bounds)
     {
@@ -773,7 +783,7 @@ internal sealed class MusicInsightsPanel : UserControl
                 .Select(x => (Point: x, Position: MapStylePoint(StylePlot(bounds), x)))
                 .OrderBy(x => Math.Pow(x.Position.X - location.X, 2) + Math.Pow(x.Position.Y - location.Y, 2))
                 .FirstOrDefault();
-            if (nearest.Point == null || Math.Abs(nearest.Position.X - location.X) > 14 || Math.Abs(nearest.Position.Y - location.Y) > 14)
+            if (nearest.Point == null || Math.Abs(nearest.Position.X - location.X) > P(14) || Math.Abs(nearest.Position.Y - location.Y) > P(14))
                 return null;
             return $"{nearest.Point.Time.ToLocalTime():g}\nMeasured output: {nearest.Point.Energy:0}%\nSignal variation: {nearest.Point.Dynamics:0}%";
         }
@@ -785,12 +795,12 @@ internal sealed class MusicInsightsPanel : UserControl
         var nearestTrack = tracks.Select(x => (Track: x, X: plot.Left + (float)(Math.Clamp((x.StartedUtc - start).TotalSeconds / span, 0, 1) * plot.Width),
             Y: plot.Bottom - (float)(Math.Clamp(x.Energy, 0, 100) / 100 * plot.Height)))
             .OrderBy(x => Math.Pow(x.X - location.X, 2) + Math.Pow(x.Y - location.Y, 2)).First();
-        if (Math.Abs(nearestTrack.X - location.X) > 14 || Math.Abs(nearestTrack.Y - location.Y) > 14) return null;
+        if (Math.Abs(nearestTrack.X - location.X) > P(14) || Math.Abs(nearestTrack.Y - location.Y) > P(14)) return null;
         return $"{nearestTrack.Track.Title} — {nearestTrack.Track.Artist}\n{nearestTrack.Track.StartedUtc.ToLocalTime():g}\n{nearestTrack.Track.SampleCount} measured samples";
     }
 
-    private static Rectangle StylePlot(Rectangle bounds) => new(bounds.Left + 91, bounds.Top + 16,
-        Math.Max(20, bounds.Width - 126), Math.Max(20, bounds.Height - 58));
+    private Rectangle StylePlot(Rectangle bounds) => new(bounds.Left + P(91), bounds.Top + P(16),
+        Math.Max(P(20), bounds.Width - P(126)), Math.Max(P(20), bounds.Height - P(58)));
 
     private PointF MapStylePoint(Rectangle plot, StylePoint point)
     {
@@ -831,12 +841,12 @@ internal sealed class MusicInsightsPanel : UserControl
         using var font = new Font(UiFontFamily, 9, FontStyle.Bold);
         using var format = new StringFormat { Alignment = alignment, LineAlignment = lineAlignment,
             Trimming = StringTrimming.EllipsisCharacter };
-        g.DrawString(label, font, brush, new RectangleF(area.Left + 8, area.Top + 8, Math.Max(1, area.Width - 16), Math.Max(1, area.Height - 16)), format);
+        g.DrawString(label, font, brush, new RectangleF(area.Left + P(8), area.Top + P(8), Math.Max(1, area.Width - P(16)), Math.Max(1, area.Height - P(16))), format);
     }
 
     private void DrawGrid(Graphics g, Rectangle plot)
     {
-        using var grid = new Pen(palette.Grid, 1);
+        using var grid = new Pen(palette.Grid, Stroke(1));
         for (var i = 0; i <= 4; i++)
         {
             var x = plot.Left + i * plot.Width / 4f;

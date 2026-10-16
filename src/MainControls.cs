@@ -5,6 +5,7 @@ namespace SilenceFill;
 
 internal sealed class AutomationToggle : Control
 {
+    private int P(int value) => DpiScale.Pixels(this, value);
     private bool isOn;
     private AppPalette palette = AppPalette.Light;
     public event EventHandler? Toggled;
@@ -43,21 +44,21 @@ internal sealed class AutomationToggle : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        TextRenderer.DrawText(e.Graphics, "Automation", Font, new Rectangle(0, 0, 102, Height), Palette.Text,
+        TextRenderer.DrawText(e.Graphics, "Automation", Font, new Rectangle(0, 0, P(102), Height), Palette.Text,
             TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
-        var track = new Rectangle(105, (Height - 24) / 2, 44, 24);
-        using var trackPath = Rounded(track, 12);
+        var track = new Rectangle(P(105), (Height - P(24)) / 2, P(44), P(24));
+        using var trackPath = Rounded(track, P(12));
         using var fill = new SolidBrush(IsOn ? Palette.Accent : Palette.Border);
         e.Graphics.FillPath(fill, trackPath);
         using var thumb = new SolidBrush(IsOn ? Palette.AccentText : Palette.Surface);
-        e.Graphics.FillEllipse(thumb, IsOn ? track.Right - 21 : track.Left + 3, track.Top + 3, 18, 18);
+        e.Graphics.FillEllipse(thumb, IsOn ? track.Right - P(21) : track.Left + P(3), track.Top + P(3), P(18), P(18));
         TextRenderer.DrawText(e.Graphics, IsOn ? "On" : "Paused", Font,
-            new Rectangle(157, 0, Width - 157, Height), IsOn ? Palette.Accent : Palette.Muted,
+            new Rectangle(P(157), 0, Math.Max(1, Width - P(157)), Height), IsOn ? Palette.Accent : Palette.Muted,
             TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
         if (Focused)
         {
-            using var focusPath = Rounded(new Rectangle(track.Left - 3, track.Top - 3, track.Width + 6, track.Height + 6), 14);
-            using var focusPen = new Pen(Palette.Accent, 1.5f);
+            using var focusPath = Rounded(new Rectangle(track.Left - P(3), track.Top - P(3), track.Width + P(6), track.Height + P(6)), P(14));
+            using var focusPen = new Pen(Palette.Accent, 1.5f * DeviceDpi / 96f);
             e.Graphics.DrawPath(focusPen, focusPath);
         }
     }
@@ -77,6 +78,7 @@ internal sealed class AutomationToggle : Control
 
 internal sealed class AppRow : Control
 {
+    private int P(int value) => DpiScale.Pixels(this, value);
     private bool selected;
     private bool hovered;
     private AppPalette palette = AppPalette.Light;
@@ -119,33 +121,37 @@ internal sealed class AppRow : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        var card = new Rectangle(0, 0, Width - 1, Height - 1);
-        using (var shape = Rounded(card, 8))
+        var card = new Rectangle(0, 0, Width - P(1), Height - P(1));
+        using (var shape = Rounded(card, P(8)))
         using (var background = new SolidBrush(selected ? Palette.Raised : hovered ? Palette.AccentSoft : Palette.Surface))
-        using (var outline = new Pen(selected ? Palette.Accent : Palette.Border))
+        using (var outline = new Pen(selected ? Palette.Accent : Palette.Border, P(1)))
         {
             e.Graphics.FillPath(background, shape);
             e.Graphics.DrawPath(outline, shape);
         }
-        if (AppIcon is not null) e.Graphics.DrawImage(AppIcon, new Rectangle(16, (Height - 22) / 2, 22, 22));
-        var textRight = Math.Max(90, Width - 108);
+        if (AppIcon is not null) e.Graphics.DrawImage(AppIcon, new Rectangle(P(16), (Height - P(22)) / 2, P(22), P(22)));
+        var textRight = Math.Max(P(90), Width - P(108));
+        var titleHeight = Math.Max(P(23), Font.Height);
+        var subtitleHeight = Math.Max(P(19), Font.Height);
+        var textTop = (Height - titleHeight - P(2) - subtitleHeight) / 2;
         TextRenderer.DrawText(e.Graphics, Choice.DisplayName, Font,
-            new Rectangle(50, (Height - 44) / 2, textRight - 54, 23), Palette.Text,
+            new Rectangle(P(50), textTop, Math.Max(1, textRight - P(54)), titleHeight), Palette.Text,
             TextFormatFlags.EndEllipsis | TextFormatFlags.VerticalCenter);
         var subtitle = Choice.DisplayName.Equals(Choice.Name, StringComparison.OrdinalIgnoreCase)
             ? Choice.IsRunning ? "Open now" : "Not open right now"
             : $"{Choice.Name}  ·  {(Choice.IsRunning ? "Open now" : "Not open")}";
         TextRenderer.DrawText(e.Graphics, subtitle, Font,
-            new Rectangle(50, (Height - 44) / 2 + 25, textRight - 54, 19), Palette.Muted,
+            new Rectangle(P(50), textTop + titleHeight + P(2), Math.Max(1, textRight - P(54)), subtitleHeight), Palette.Muted,
             TextFormatFlags.EndEllipsis | TextFormatFlags.VerticalCenter);
-        var badge = new Rectangle(Math.Max(Width - 100, 68), (Height - 28) / 2, 84, 28);
-        using (var shape = Rounded(badge, 7))
+        var badgeHeight = Math.Max(P(28), Font.Height + P(4));
+        var badge = new Rectangle(Math.Max(Width - P(100), P(68)), (Height - badgeHeight) / 2, P(84), badgeHeight);
+        using (var shape = Rounded(badge, P(7)))
         using (var brush = new SolidBrush(selected ? Palette.AccentSoft : Palette.Input))
             e.Graphics.FillPath(brush, shape);
         TextRenderer.DrawText(e.Graphics, selected ? "Monitoring" : "Add app", Font,
             badge, selected ? Palette.Accent : Palette.Muted,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-        if (Focused) ControlPaint.DrawFocusRectangle(e.Graphics, new Rectangle(3, 3, Width - 7, Height - 7), Palette.Accent, Palette.Surface);
+        if (Focused) ControlPaint.DrawFocusRectangle(e.Graphics, new Rectangle(P(3), P(3), Math.Max(1, Width - P(7)), Math.Max(1, Height - P(7))), Palette.Accent, Palette.Surface);
     }
 
     private static GraphicsPath Rounded(Rectangle bounds, int radius)
@@ -163,6 +169,7 @@ internal sealed class AppRow : Control
 
 internal sealed class AppScrollIndicator : Control
 {
+    private int P(int value) => DpiScale.Pixels(this, value);
     private AppPalette palette = AppPalette.Light;
     private double position;
     private double visibleShare = 1;
@@ -202,7 +209,7 @@ internal sealed class AppScrollIndicator : Control
 
     private void MoveTo(int y)
     {
-        var thumb = Math.Max(25, (int)(Height * visibleShare));
+        var thumb = Math.Max(P(25), (int)(Height * visibleShare));
         PositionRequested?.Invoke(Math.Clamp((double)(y - thumb / 2) / Math.Max(1, Height - thumb), 0, 1));
     }
 
@@ -210,9 +217,9 @@ internal sealed class AppScrollIndicator : Control
     {
         using var rail = new SolidBrush(Palette.Border);
         using var thumbBrush = new SolidBrush(Palette.Accent);
-        e.Graphics.FillRectangle(rail, Width / 2 - 2, 4, 4, Math.Max(1, Height - 8));
-        var thumb = Math.Max(25, (int)(Height * visibleShare));
+        e.Graphics.FillRectangle(rail, Width / 2 - P(2), P(4), P(4), Math.Max(1, Height - P(8)));
+        var thumb = Math.Max(P(25), (int)(Height * visibleShare));
         var top = (int)((Height - thumb) * position);
-        e.Graphics.FillRectangle(thumbBrush, Width / 2 - 3, top, 6, thumb);
+        e.Graphics.FillRectangle(thumbBrush, Width / 2 - P(3), top, P(6), thumb);
     }
 }

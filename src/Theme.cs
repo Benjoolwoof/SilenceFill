@@ -140,10 +140,12 @@ internal static class AppTheme
         button.BackColor = danger ? Color.FromArgb(162, 60, 63) : primary ? palette.Accent : palette.Raised;
         button.ForeColor = danger ? Color.White : primary ? palette.AccentText : palette.Text;
         button.FlatAppearance.BorderColor = danger ? button.BackColor : primary ? palette.Accent : palette.Border;
-        button.FlatAppearance.BorderSize = 1;
+        button.FlatAppearance.BorderSize = DpiScale.Pixels(button, 1);
         button.FlatAppearance.MouseOverBackColor = danger ? Color.FromArgb(185, 69, 71) : primary ? palette.Accent : palette.AccentSoft;
         button.FlatAppearance.MouseDownBackColor = palette.AccentSoft;
-        button.Padding = new Padding(5, 2, 5, 2);
+        button.Padding = new Padding(DpiScale.Pixels(button, 5), DpiScale.Pixels(button, 2),
+            DpiScale.Pixels(button, 5), DpiScale.Pixels(button, 2));
+        if (button.AutoSize) button.AutoSizeMode = AutoSizeMode.GrowAndShrink;
     }
 
     public static void StyleMenu(ContextMenuStrip menu, AppPalette palette)
@@ -173,6 +175,8 @@ internal static class AppTheme
             StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog,
             MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = false
         };
+        dialog.SuspendLayout();
+        dialog.AutoScaleMode = AutoScaleMode.Dpi;
         var proceed = new Button { Text = confirm ? "Delete history" : "OK", Size = new Size(122, 32),
             DialogResult = confirm ? DialogResult.Yes : DialogResult.OK, Tag = confirm ? "danger" : "primary" };
         proceed.Location = new Point(dialog.ClientSize.Width - proceed.Width - 24, dialog.ClientSize.Height - 48);
@@ -189,6 +193,8 @@ internal static class AppTheme
             Size = new Size(dialog.ClientSize.Width - 60, dialog.ClientSize.Height - 110),
             TextAlign = ContentAlignment.MiddleLeft });
         dialog.BackColor = palette.Background;
+        dialog.AutoScaleDimensions = new SizeF(96, 96);
+        dialog.ResumeLayout(true);
         AppTheme.Apply(dialog, palette);
         dialog.Shown += (_, _) => ApplyTitleBar(dialog, palette);
         return dialog.ShowDialog(owner);
@@ -210,6 +216,7 @@ internal static class AppTheme
 
 internal sealed class DropSelect : Control
 {
+    private int P(int value) => DpiScale.Pixels(this, value);
     private readonly ContextMenuStrip menu = new();
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public AppPalette Palette { get; set; } = AppPalette.Light;
@@ -250,16 +257,16 @@ internal sealed class DropSelect : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         using var background = new SolidBrush(Palette.Input);
-        using var border = new Pen(Focused ? Palette.Accent : Palette.Border);
+        using var border = new Pen(Focused ? Palette.Accent : Palette.Border, P(1));
         e.Graphics.FillRectangle(background, ClientRectangle);
-        e.Graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+        e.Graphics.DrawRectangle(border, 0, 0, Width - P(1), Height - P(1));
         TextRenderer.DrawText(e.Graphics, SelectedItem?.ToString() ?? "Choose…", Font,
-            new Rectangle(10, 1, Math.Max(1, Width - 34), Height - 2), Palette.Text,
+            new Rectangle(P(10), P(1), Math.Max(1, Width - P(34)), Math.Max(1, Height - P(2))), Palette.Text,
             TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
-        using var arrow = new Pen(Palette.Muted, 1.7f);
-        var x = Width - 17;
-        var y = Height / 2 - 2;
-        e.Graphics.DrawLines(arrow, [new Point(x - 4, y), new Point(x, y + 4), new Point(x + 4, y)]);
+        using var arrow = new Pen(Palette.Muted, 1.7f * DeviceDpi / 96f);
+        var x = Width - P(17);
+        var y = Height / 2 - P(2);
+        e.Graphics.DrawLines(arrow, [new Point(x - P(4), y), new Point(x, y + P(4)), new Point(x + P(4), y)]);
     }
 
     protected override void OnClick(EventArgs e) { base.OnClick(e); OpenMenu(); }
@@ -297,6 +304,7 @@ internal sealed class DropSelect : Control
 
 internal sealed class ThemedStepper : UserControl
 {
+    private int P(int value) => DpiScale.Pixels(this, value);
     private readonly TextBox entry = new() { BorderStyle = BorderStyle.None, TextAlign = HorizontalAlignment.Center };
     private decimal value;
     private decimal minimum;
@@ -336,6 +344,7 @@ internal sealed class ThemedStepper : UserControl
 
     public ThemedStepper()
     {
+        AutoScaleMode = AutoScaleMode.Inherit;
         Size = new Size(70, 30);
         MinimumSize = new Size(58, 28);
         AccessibleRole = AccessibleRole.SpinButton;
@@ -349,12 +358,16 @@ internal sealed class ThemedStepper : UserControl
             else if (e.KeyCode == Keys.Enter) { CommitEntry(); e.SuppressKeyPress = true; }
         };
         entry.Leave += (_, _) => CommitEntry();
+        entry.FontChanged += (_, _) => PositionEntry();
         Controls.Add(entry);
         Resize += (_, _) => PositionEntry();
+        Layout += (_, _) => PositionEntry();
+        DpiChangedAfterParent += (_, _) => PositionEntry();
         PositionEntry();
     }
 
-    private void PositionEntry() => entry.SetBounds(5, Math.Max(2, (Height - entry.PreferredHeight) / 2), Math.Max(15, Width - 30), entry.PreferredHeight);
+    private void PositionEntry() => entry.SetBounds(P(5), Math.Max(P(2), (Height - entry.PreferredHeight) / 2),
+        Math.Max(P(15), Width - P(30)), entry.PreferredHeight);
     private void CommitEntry()
     {
         if (decimal.TryParse(entry.Text, out var parsed)) Value = parsed;
@@ -364,28 +377,31 @@ internal sealed class ThemedStepper : UserControl
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
-        if (e.X > Width - 25) Value += e.Y < Height / 2 ? 1 : -1;
+        if (e.X > Width - P(25)) Value += e.Y < Height / 2 ? 1 : -1;
         else entry.Focus();
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
         using var background = new SolidBrush(Palette.Input);
-        using var border = new Pen(Palette.Border);
-        using var glyph = new Pen(Palette.Muted, 1.4f);
+        using var border = new Pen(Palette.Border, P(1));
+        using var glyph = new Pen(Palette.Muted, 1.4f * DeviceDpi / 96f);
         e.Graphics.FillRectangle(background, ClientRectangle);
-        e.Graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
-        var x = Width - 13;
-        e.Graphics.DrawLine(glyph, Width - 24, 1, Width - 24, Height - 2);
-        e.Graphics.DrawLine(glyph, Width - 24, Height / 2, Width - 1, Height / 2);
-        e.Graphics.DrawLine(glyph, x - 4, Height / 4, x + 4, Height / 4);
-        e.Graphics.DrawLine(glyph, x, Height / 4 - 4, x, Height / 4 + 4);
-        e.Graphics.DrawLine(glyph, x - 4, Height * 3 / 4, x + 4, Height * 3 / 4);
+        e.Graphics.DrawRectangle(border, 0, 0, Width - P(1), Height - P(1));
+        var x = Width - P(13);
+        e.Graphics.DrawLine(glyph, Width - P(24), P(1), Width - P(24), Height - P(2));
+        e.Graphics.DrawLine(glyph, Width - P(24), Height / 2, Width - P(1), Height / 2);
+        e.Graphics.DrawLine(glyph, x - P(4), Height / 4, x + P(4), Height / 4);
+        e.Graphics.DrawLine(glyph, x, Height / 4 - P(4), x, Height / 4 + P(4));
+        e.Graphics.DrawLine(glyph, x - P(4), Height * 3 / 4, x + P(4), Height * 3 / 4);
     }
 }
 
 internal sealed class ThemedTabControl : UserControl
 {
+    private int P(int value) => DpiScale.Pixels(this, value);
+    private int TabWidth => Math.Max(P(126), TabPages.Count == 0 ? 0 :
+        TabPages.Max(page => TextRenderer.MeasureText(page.Title, Font).Width) + P(32));
     private readonly HeaderPanel header = new() { Dock = DockStyle.Top, Height = 36, TabStop = true,
         AccessibleName = "SilenceFill sections", AccessibleRole = AccessibleRole.PageTabList };
     private readonly Panel content = new() { Dock = DockStyle.Fill };
@@ -430,12 +446,13 @@ internal sealed class ThemedTabControl : UserControl
 
     public ThemedTabControl()
     {
+        AutoScaleMode = AutoScaleMode.Inherit;
         Controls.Add(content);
         Controls.Add(header);
         header.Paint += (_, e) => DrawHeader(e.Graphics);
         header.MouseDown += (_, e) =>
         {
-            var index = e.X / 126;
+            var index = e.X / TabWidth;
             if (index >= 0 && index < TabPages.Count) SelectedIndex = index;
         };
         header.KeyDown += (_, e) =>
@@ -443,6 +460,20 @@ internal sealed class ThemedTabControl : UserControl
             if (e.KeyCode == Keys.Right) { SelectedIndex = Math.Min(TabPages.Count - 1, selectedIndex + 1); e.Handled = true; }
             if (e.KeyCode == Keys.Left) { SelectedIndex = Math.Max(0, selectedIndex - 1); e.Handled = true; }
         };
+        DpiChangedAfterParent += (_, _) => { UpdateHeaderMetrics(); header.Invalidate(); };
+    }
+
+    protected override void OnLayout(LayoutEventArgs e)
+    {
+        UpdateHeaderMetrics();
+        base.OnLayout(e);
+    }
+
+    private void UpdateHeaderMetrics()
+    {
+        if (header is null) return;
+        var height = Math.Max(P(36), Font.Height + P(12));
+        if (header.Height != height) header.Height = height;
     }
 
     public void AddPages(params (string Title, Control Page)[] pages)
@@ -464,7 +495,7 @@ internal sealed class ThemedTabControl : UserControl
         graphics.Clear(Palette.Background);
         for (var i = 0; i < TabPages.Count; i++)
         {
-            var bounds = new Rectangle(i * 126, 0, 126, header.Height);
+            var bounds = new Rectangle(i * TabWidth, 0, TabWidth, header.Height);
             using var background = new SolidBrush(i == SelectedIndex ? Palette.Surface : Palette.Background);
             graphics.FillRectangle(background, bounds);
             TextRenderer.DrawText(graphics, TabPages[i].Title, Font, bounds,
@@ -473,7 +504,7 @@ internal sealed class ThemedTabControl : UserControl
             if (i == SelectedIndex)
             {
                 using var underline = new SolidBrush(Palette.Accent);
-                graphics.FillRectangle(underline, bounds.Left + 16, bounds.Bottom - 3, bounds.Width - 32, 3);
+                graphics.FillRectangle(underline, bounds.Left + P(16), bounds.Bottom - P(3), bounds.Width - P(32), P(3));
             }
         }
     }

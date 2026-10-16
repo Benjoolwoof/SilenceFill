@@ -39,7 +39,7 @@ Run the tests from `tests`:
 dotnet run --project SilenceFill.Tests.csproj
 ```
 
-The `preview` project renders interface screenshots using isolated test data. Set `SILENCEFILL_DATA_DIR` to use another local data folder during development.
+The `preview` project uses the app's DPI initialization and isolated test data to check maximized, normal, and compact layouts at the current Windows display scale. It checks text bounds, reopening, and control interactions while rendering screenshots. Set `SILENCEFILL_DATA_DIR` to use another local data folder during development.
 
 ## Limits
 

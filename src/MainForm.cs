@@ -39,6 +39,7 @@ internal sealed class MainForm : Form
 
     public MainForm()
     {
+        SuspendLayout();
         Text = "SilenceFill  ·  Spotify between sounds";
         Size = new Size(820, 650);
         MinimumSize = new Size(540, 480);
@@ -88,7 +89,8 @@ internal sealed class MainForm : Form
         setup.Margin = new Padding(0, 6, 0, 4);
         setup.TextAlign = ContentAlignment.MiddleLeft;
         layout.Controls.Add(setup, 0, 2);
-        var controls = new TableLayoutPanel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 8), ColumnCount = 2 };
+        var controls = new TableLayoutPanel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 8), ColumnCount = 2, RowCount = 1 };
+        controls.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         controls.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 222));
         controls.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         enabled.IsOn = settings.Enabled;
@@ -150,17 +152,17 @@ internal sealed class MainForm : Form
         fill.Controls.Add(layout);
         void UpdateSpacing()
         {
-            compactLayout = fill.Width < 650 || fill.Height < 500;
-            layout.Padding = compactLayout ? new Padding(16, 12, 16, 12) : new Padding(24, 20, 24, 20);
-            layout.RowStyles[0].Height = compactLayout ? 38 : 48;
-            layout.RowStyles[1].Height = compactLayout ? 80 : 94;
-            layout.RowStyles[2].Height = compactLayout ? 40 : 38;
-            layout.RowStyles[3].Height = compactLayout ? 48 : 58;
-            layout.RowStyles[4].Height = compactLayout ? 72 : 80;
-            state.Padding = new Padding(compactLayout ? 10 : 12);
-            state.RowStyles[0].Height = compactLayout ? 24 : 28;
-            state.RowStyles[1].Height = compactLayout ? 18 : 20;
-            delay.Margin = new Padding(compactLayout ? 12 : 24, 0, 0, 0);
+            compactLayout = fill.Width < P(650) || fill.Height < P(500);
+            layout.Padding = compactLayout ? new Padding(P(16), P(12), P(16), P(12)) : new Padding(P(24), P(20), P(24), P(20));
+            layout.RowStyles[0].Height = Math.Max(P(compactLayout ? 38 : 48), heading.Font.Height + heading.Margin.Vertical);
+            layout.RowStyles[1].Height = P(compactLayout ? 80 : 94);
+            layout.RowStyles[2].Height = P(compactLayout ? 40 : 38);
+            layout.RowStyles[3].Height = P(compactLayout ? 48 : 58);
+            layout.RowStyles[4].Height = P(compactLayout ? 72 : 80);
+            state.Padding = new Padding(P(compactLayout ? 10 : 12));
+            state.RowStyles[0].Height = P(compactLayout ? 24 : 28);
+            state.RowStyles[1].Height = P(compactLayout ? 18 : 20);
+            delay.Margin = new Padding(P(compactLayout ? 12 : 24), 0, 0, 0);
             FitAppRows();
         }
         fill.SizeChanged += (_, _) => UpdateSpacing();
@@ -221,7 +223,18 @@ internal sealed class MainForm : Form
             try { if (IsHandleCreated && !IsDisposed) BeginInvoke(() => ApplyUpdate(update)); }
             catch (InvalidOperationException) { }
         });
+        AutoScaleDimensions = new SizeF(96, 96);
+        ResumeLayout(true);
+        UpdateSpacing();
+        FitAppViewport();
+        ApplyTheme();
+        DpiChanged += (_, _) =>
+        {
+            BeginInvoke(() => { UpdateSpacing(); FitAppViewport(); ApplyTheme(); });
+        };
     }
+
+    private int P(int logical) => DpiScale.Pixels(this, logical);
 
     public void ShowSettings()
     {
@@ -238,6 +251,7 @@ internal sealed class MainForm : Form
             MinimumSize = new Size(400, 230), StartPosition = FormStartPosition.CenterParent,
             FormBorderStyle = FormBorderStyle.Sizable, ShowInTaskbar = false
         };
+        dialog.SuspendLayout();
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), RowCount = 3 };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -251,6 +265,10 @@ internal sealed class MainForm : Form
         dialog.Controls.Add(layout);
         start.Tag = "primary";
         dialog.BackColor = AppTheme.Resolve(settings.Theme).Background;
+        AppTheme.Apply(dialog, AppTheme.Resolve(settings.Theme));
+        dialog.AutoScaleMode = AutoScaleMode.Dpi;
+        dialog.AutoScaleDimensions = new SizeF(96, 96);
+        dialog.ResumeLayout(true);
         AppTheme.Apply(dialog, AppTheme.Resolve(settings.Theme));
         dialog.Shown += (_, _) => AppTheme.ApplyTitleBar(dialog, AppTheme.Resolve(settings.Theme));
         dialog.ShowDialog(this);
@@ -338,7 +356,7 @@ internal sealed class MainForm : Form
         {
             var empty = new Label { Text = filter.Length > 0 ? "No apps match your search." :
                 "Open an app and it will appear here. Selected apps stay listed when closed.",
-                AutoSize = false, Height = 54, TextAlign = ContentAlignment.MiddleLeft, Tag = "muted" };
+                AutoSize = false, Height = P(54), TextAlign = ContentAlignment.MiddleLeft, Tag = "muted" };
             apps.Controls.Add(empty);
             empty.ForeColor = AppTheme.Resolve(settings.Theme).Muted;
         }
@@ -352,14 +370,14 @@ internal sealed class MainForm : Form
 
     private void FitAppRows()
     {
-        var width = Math.Max(160, appHost.ClientSize.Width - 14 - apps.Padding.Horizontal - 2);
+        var width = Math.Max(P(160), appHost.ClientSize.Width - P(14) - apps.Padding.Horizontal - P(2));
         foreach (Control row in apps.Controls)
         {
             if (row.Width != width) row.Width = width;
             if (row is AppRow)
             {
-                row.Height = compactLayout ? 58 : 64;
-                row.Margin = new Padding(0, 0, 0, compactLayout ? 8 : 10);
+                row.Height = Math.Max(P(compactLayout ? 58 : 64), row.Font.Height * 2 + P(12));
+                row.Margin = new Padding(0, 0, 0, P(compactLayout ? 8 : 10));
             }
         }
         apps.AutoScrollMinSize = new Size(0, AppContentHeight());
@@ -368,8 +386,8 @@ internal sealed class MainForm : Form
 
     private void FitAppViewport()
     {
-        apps.SetBounds(0, 0, Math.Max(1, appHost.ClientSize.Width - 14), appHost.ClientSize.Height);
-        appScroll.SetBounds(Math.Max(0, appHost.ClientSize.Width - 10), 0, 10, appHost.ClientSize.Height);
+        apps.SetBounds(0, 0, Math.Max(1, appHost.ClientSize.Width - P(14)), appHost.ClientSize.Height);
+        appScroll.SetBounds(Math.Max(0, appHost.ClientSize.Width - P(10)), 0, P(10), appHost.ClientSize.Height);
     }
 
     private int AppContentHeight() => apps.Padding.Vertical + apps.Controls.Cast<Control>()

@@ -6,11 +6,10 @@ internal static class Preview
     [STAThread]
     private static void Main(string[] args)
     {
-        Application.EnableVisualStyles();
-        Application.SetCompatibleTextRenderingDefault(false);
+        SilenceFill.Program.InitializeUi();
         var folder = Path.GetFullPath(args.Length == 0 ? "work/SilenceFill-v2/previews" : args[0]);
         Directory.CreateDirectory(folder);
-        var data = Path.Combine(folder, "test-data");
+        var data = Path.Combine(folder, "test-data", Guid.NewGuid().ToString("N"));
         Environment.SetEnvironmentVariable("SILENCEFILL_DATA_DIR", data);
         Directory.CreateDirectory(data);
         Storage.WriteAtomic(Settings.PathOnDisk, System.Text.Json.JsonSerializer.Serialize(new Settings
@@ -20,7 +19,20 @@ internal static class Preview
         using var form = new MainForm();
         form.Show();
         Application.DoEvents();
+        Console.WriteLine($"Preview display DPI: {form.DeviceDpi}; maximized window: {form.Size}");
+        Capture("launch-maximized.png");
+        if (form.WindowState != FormWindowState.Maximized) throw new Exception("Launch did not maximize the window.");
         form.WindowState = FormWindowState.Normal;
+        form.Hide();
+        form.ShowSettings();
+        Application.DoEvents();
+        if (!form.Visible || form.WindowState != FormWindowState.Maximized) throw new Exception("Reopening a hidden window did not maximize it.");
+        form.WindowState = FormWindowState.Minimized;
+        form.ShowSettings();
+        Application.DoEvents();
+        if (form.WindowState != FormWindowState.Maximized) throw new Exception("Reopening a minimized window did not maximize it.");
+        form.WindowState = FormWindowState.Normal;
+        form.Size = PreviewSize(820, 650);
         Thread.Sleep(800);
         Application.DoEvents();
         var serviceField = typeof(MainForm).GetField("service", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -35,6 +47,8 @@ internal static class Preview
         if (retainedIcons.Count == 0 || retainedIcons.Any(icon => icon.Handle == IntPtr.Zero))
             throw new Exception("App icons were disposed while the list still needs them.");
         choices.Remove(selfName);
+        for (var i = 1; i <= 10; i++)
+            choices[$"preview-app-{i}"] = new AppChoice($"preview-app-{i}", $"Preview app {i}", true);
         updateApps.Invoke(form, null);
         ((Label)typeof(MainForm).GetField("status", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(form)!).Text = "Automation off";
         ((Label)typeof(MainForm).GetField("detail", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(form)!).Text = "Spotify remains under your control.";
@@ -63,9 +77,18 @@ internal static class Preview
         if (settings.QuietSeconds != 6) throw new Exception("Quiet delay stepper did not update settings.");
         quiet.Value = 4;
         var tabs = form.Controls.OfType<ThemedTabControl>().Single();
+        form.ShowSettings();
+        Application.DoEvents();
+        Capture("main-maximized.png");
+        form.WindowState = FormWindowState.Normal;
+        form.Size = new Size(2874, 1380);
+        Application.DoEvents();
+        Capture("main-wide.png");
+        form.Size = PreviewSize(820, 650);
+        Application.DoEvents();
         CaptureDialog(() => typeof(MainForm).GetMethod("ShowFirstRun", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(form, null), "welcome.png");
         Capture("main-normal.png");
-        form.Size = new Size(540, 480);
+        form.Size = PreviewSize(540, 480);
         Application.DoEvents();
         var appList = (FlowLayoutPanel)typeof(MainForm).GetField("apps", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(form)!;
         var appScroll = (AppScrollIndicator)typeof(MainForm).GetField("appScroll", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(form)!;
@@ -86,16 +109,19 @@ internal static class Preview
         Application.DoEvents();
         if (!settings.SelectedApps.Contains("chrome")) throw new Exception("App card did not restore monitoring.");
         var automation = (AutomationToggle)typeof(MainForm).GetField("enabled", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(form)!;
+        settings.Enabled = false;
+        automation.IsOn = false;
         var flipAutomation = typeof(AutomationToggle).GetMethod("OnClick", BindingFlags.Instance | BindingFlags.NonPublic)!;
         flipAutomation.Invoke(automation, [EventArgs.Empty]);
         if (!settings.Enabled || !automation.IsOn) throw new Exception("Automation switch did not enable monitoring.");
         flipAutomation.Invoke(automation, [EventArgs.Empty]);
         if (settings.Enabled || automation.IsOn) throw new Exception("Automation switch did not pause monitoring.");
-        form.Size = new Size(820, 650);
+        form.Size = PreviewSize(820, 650);
         var panel = (MusicInsightsPanel)typeof(MainForm).GetField("insights", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(form)!;
         var now = DateTime.UtcNow;
         for (var i = 0; i < 35; i++) panel.Observe(new NowPlaying("Introduction and Rondo Capriccioso, Op. 28", "Camille Saint-Saëns", true),
             (float)(0.02 + 0.15 * Math.Abs(Math.Sin(i / 3.0))), now.AddMilliseconds(-14000 + i * 400));
+        ((Button)typeof(MusicInsightsPanel).GetField("resetCorrection", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(panel)!).Visible = true;
         tabs.SelectedIndex = 1;
         Application.DoEvents();
         Capture("analytics-signal.png");
@@ -110,10 +136,10 @@ internal static class Preview
         }
         historyMenu.Hide();
         CaptureDialog(() => typeof(MusicInsightsPanel).GetMethod("EditLabels", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, null), "customize-chart.png");
-        form.Size = new Size(540, 480);
+        form.Size = PreviewSize(540, 480);
         Application.DoEvents();
         Capture("analytics-narrow.png");
-        form.Size = new Size(820, 650);
+        form.Size = PreviewSize(820, 650);
         var history = (List<TrackSummary>)typeof(MusicInsightsPanel).GetField("history", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(panel)!;
         history.Add(new TrackSummary { Title = "Sample recording A", Artist = "Preview", StartedUtc = now.AddHours(-5), Energy = 24, Variation = 15, SampleCount = 100 });
         history.Add(new TrackSummary { Title = "Sample recording B", Artist = "Preview", StartedUtc = now.AddHours(-3), Energy = 67, Variation = 42, SampleCount = 110 });
@@ -149,29 +175,54 @@ internal static class Preview
         Application.DoEvents();
         Capture("analytics-light.png");
         form.Hide();
+        Console.WriteLine("PASS: DPI-aware layout, launch/reopen, and preview interaction checks");
+        Size PreviewSize(int width, int height) => new(DpiScale.Pixels(form, width), DpiScale.Pixels(form, height));
         void Capture(string name)
         {
             using var bitmap = new Bitmap(form.Width, form.Height);
             form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
             bitmap.Save(Path.Combine(folder, name));
+            CheckTextBounds(form);
+        }
+        void CheckTextBounds(Control parent)
+        {
+            foreach (Control child in parent.Controls)
+            {
+                if (!child.Visible) continue;
+                if (child is Label label && !string.IsNullOrEmpty(label.Text) && label.Height < label.Font.Height)
+                    throw new Exception($"Text is clipped at {form.DeviceDpi} DPI: {label.Text} ({label.Height} < {label.Font.Height}).");
+                if (child is Label or Button && !string.IsNullOrEmpty(child.Text))
+                    for (var ancestor = child.Parent; ancestor != null; ancestor = ancestor.Parent)
+                        if (!ancestor.ClientRectangle.Contains(ancestor.RectangleToClient(child.RectangleToScreen(child.ClientRectangle))))
+                            throw new Exception($"Control is clipped at {form.DeviceDpi} DPI: {child.Text}; {child.Bounds}; ancestor {ancestor.GetType().Name} {ancestor.ClientRectangle}; relative {ancestor.RectangleToClient(child.RectangleToScreen(child.ClientRectangle))}.");
+                CheckTextBounds(child);
+            }
         }
         void CaptureDialog(Action show, string name)
         {
             var captured = false;
+            Exception? captureError = null;
             using var timer = new System.Windows.Forms.Timer { Interval = 100 };
             timer.Tick += (_, _) =>
             {
                 var dialog = Application.OpenForms.Cast<Form>().FirstOrDefault(x => x != form);
                 if (dialog == null || captured) return;
                 captured = true;
-                using var bitmap = new Bitmap(dialog.Width, dialog.Height);
-                dialog.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
-                bitmap.Save(Path.Combine(folder, name));
-                dialog.Close();
+                try
+                {
+                    using var bitmap = new Bitmap(dialog.Width, dialog.Height);
+                    dialog.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
+                    bitmap.Save(Path.Combine(folder, name));
+                    CheckTextBounds(dialog);
+                }
+                catch (Exception error) { captureError = error; }
+                finally { dialog.Close(); }
             };
             timer.Start();
             show();
             timer.Stop();
+            if (!captured) throw new Exception($"Dialog was not captured: {name}.");
+            if (captureError != null) throw new Exception($"Dialog layout failed: {name}.", captureError);
         }
     }
 }
