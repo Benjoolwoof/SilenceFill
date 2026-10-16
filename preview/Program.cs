@@ -20,6 +20,7 @@ internal static class Preview
         using var form = new MainForm();
         form.Show();
         Application.DoEvents();
+        form.WindowState = FormWindowState.Normal;
         Thread.Sleep(800);
         Application.DoEvents();
         var serviceField = typeof(MainForm).GetField("service", BindingFlags.Instance | BindingFlags.NonPublic)!;

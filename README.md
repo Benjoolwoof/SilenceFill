@@ -11,7 +11,7 @@ SilenceFill pauses Spotify when a selected Windows app produces audio, then resu
 3. Set the quiet delay and choose Sensitive, Balanced, or Relaxed detection.
 4. Close the window to leave SilenceFill in the tray. The tray menu can open the app, pause automation, change appearance, and exit.
 
-The first launch shows a short setup dialog. A second v2 process brings the existing window forward. If an older SilenceFill process is running, v2 displays a warning and does not issue playback commands until that copy exits.
+SilenceFill opens maximized on launch and whenever it is reopened from the tray. The first launch shows a short setup dialog. A second v2 process brings the existing window forward and maximizes it. If an older SilenceFill process is running, v2 displays a warning and does not issue playback commands until that copy exits.
 
 ## Analytics
 

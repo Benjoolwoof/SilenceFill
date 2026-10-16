@@ -43,6 +43,7 @@ internal sealed class MainForm : Form
         Size = new Size(820, 650);
         MinimumSize = new Size(540, 480);
         StartPosition = FormStartPosition.CenterScreen;
+        WindowState = FormWindowState.Maximized;
         AutoScaleMode = AutoScaleMode.Dpi;
         Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
         Font = new Font("Segoe UI", 9.5f);
@@ -224,7 +225,9 @@ internal sealed class MainForm : Form
 
     public void ShowSettings()
     {
-        Show(); WindowState = FormWindowState.Normal; Activate();
+        WindowState = FormWindowState.Maximized;
+        Show();
+        Activate();
     }
 
     private void ShowFirstRun()
